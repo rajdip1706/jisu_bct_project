@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Voyage — AI Trip Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="theme.css" />
+</head>
+<body>
+
+  <div class="horizon"></div>
+
+  <header class="site-header">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 24 C6 24 14 8 20 8 C26 8 34 24 34 24" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="20" cy="8" r="3.4" fill="currentColor"/>
+        <path d="M20 22 L14 34 M20 22 L26 34 M20 22 L20 36" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">Voyage</span>
+    </div>
+    <nav class="header-actions">
+      <button type="button" id="my-trips-btn" class="pill-btn">
+        <span class="pill-icon">🧳</span> My trips <span id="trip-count-badge" class="count-badge" hidden>0</span>
+      </button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ===== PLANNER FORM ===== -->
+    <section id="planner-view" class="view active">
+      <div class="hero">
+        <p class="eyebrow">✈️ Trip brief</p>
+        <h1>Where to<br><span class="hl">next?</span></h1>
+        <p class="hero-sub">Tell us the vibe. The AI drafts a full day-by-day plan with a live route map,
+        current weather, and a budget breakdown you can edit, save, and share.</p>
+      </div>
+
+      <form id="planner-form" class="brief-card">
+        <div class="field-row">
+          <label class="field full">
+            <span class="field-label">Destination</span>
+            <input type="text" id="destination" name="destination" placeholder="e.g. Lisbon, Portugal" required autocomplete="off" />
+          </label>
+        </div>
+
+        <div class="field-row two-col">
+          <label class="field">
+            <span class="field-label">Length of stay</span>
+            <input type="number" id="days" name="days" min="1" max="21" value="5" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Travelers</span>
+            <input type="number" id="travelers" name="travelers" min="1" max="12" value="2" required />
+          </label>
+        </div>
+
+        <div class="field-row two-col">
+          <label class="field">
+            <span class="field-label">Start date <em>(optional)</em></span>
+            <input type="date" id="start-date" name="start-date" />
+          </label>
+          <div class="field" aria-hidden="true"></div>
+        </div>
+
+        <div class="field-row two-col">
+          <label class="field">
+            <span class="field-label">Budget</span>
+            <select id="budget" name="budget">
+              <option value="shoestring">Shoestring</option>
+              <option value="moderate" selected>Moderate</option>
+              <option value="comfortable">Comfortable</option>
+              <option value="luxury">Luxury</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Pace</span>
+            <select id="pace" name="pace">
+              <option value="relaxed">Relaxed — few things, done well</option>
+              <option value="balanced" selected>Balanced</option>
+              <option value="packed">Packed — see it all</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="field-row">
+          <span class="field-label">Interests <em>(pick a few)</em></span>
+          <div class="chip-group" id="interest-chips">
+            <button type="button" class="chip" data-value="food & drink">🍜 Food &amp; drink</button>
+            <button type="button" class="chip" data-value="history & culture">🏛️ History &amp; culture</button>
+            <button type="button" class="chip" data-value="nature & outdoors">🌿 Nature &amp; outdoors</button>
+            <button type="button" class="chip" data-value="art & museums">🎨 Art &amp; museums</button>
+            <button type="button" class="chip" data-value="nightlife">🌃 Nightlife</button>
+            <button type="button" class="chip" data-value="shopping">🛍️ Shopping</button>
+            <button type="button" class="chip" data-value="local & offbeat">🧭 Local &amp; offbeat</button>
+            <button type="button" class="chip" data-value="relaxation">🌴 Relaxation</button>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <label class="field full">
+            <span class="field-label">Anything else? <em>(optional)</em></span>
+            <textarea id="notes" name="notes" rows="2" placeholder="e.g. traveling with a toddler, celebrating an anniversary, avoid long hikes..."></textarea>
+          </label>
+        </div>
+
+        <button type="submit" id="submit-btn" class="submit-btn">
+          <span class="btn-text">Draft my itinerary</span>
+          <span class="btn-icon">→</span>
+        </button>
+
+        <p id="form-error" class="form-error" hidden></p>
+      </form>
+    </section>
+
+    <!-- ===== LOADING ===== -->
+    <section id="loading-view" class="view">
+      <div class="loading-stamp">
+        <span class="spinner-plane">✈️</span>
+        <p class="loading-text">Charting your route<span class="dots"><span>.</span><span>.</span><span>.</span></span></p>
+      </div>
+    </section>
+
+    <!-- ===== RESULTS ===== -->
+    <section id="results-view" class="view">
+      <div class="results-header">
+        <button id="back-btn" class="back-btn">← New trip</button>
+        <div class="results-header-actions">
+          <button type="button" id="edit-toggle-btn" class="icon-btn" title="Edit itinerary">✏️ <span>Edit</span></button>
+          <button type="button" id="save-trip-btn" class="icon-btn" title="Save to My trips">💾 <span>Save</span></button>
+          <button type="button" id="share-trip-btn" class="icon-btn" title="Copy shareable link">🔗 <span>Share</span></button>
+          <button type="button" id="export-trip-btn" class="icon-btn" title="Export / Print">🖨️ <span>Export</span></button>
+        </div>
+      </div>
+      <p id="share-status" class="share-status" hidden></p>
+
+      <h2 class="results-title" id="result-destination" contenteditable="false">—</h2>
+      <p class="results-summary" id="result-summary" contenteditable="false"></p>
+
+      <!-- Live weather card -->
+      <div class="weather-card" id="weather-card" hidden>
+        <div class="weather-icon" id="weather-icon">—</div>
+        <div class="weather-info">
+          <span class="weather-temp" id="weather-temp">—</span>
+          <span class="weather-desc" id="weather-desc">—</span>
+        </div>
+        <span class="weather-note">right now, at your destination</span>
+      </div>
+      <p class="weather-fallback" id="weather-fallback" hidden>Couldn't load live weather for this destination right now.</p>
+      <p class="weather-retry" id="weather-retry" hidden><button type="button" id="weather-retry-btn" class="link-btn">Retry weather lookup</button></p>
+
+      <div class="quick-facts" id="quick-facts" hidden></div>
+
+      <div class="meta-strip">
+        <div class="meta-item">
+          <span class="meta-label">AI's rough estimate</span>
+          <span class="meta-value" id="result-budget">—</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Calculated total</span>
+          <span class="meta-value" id="result-total-calc">—</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Currency</span>
+          <select id="currency-select" class="currency-select">
+            <option value="INR" selected>INR ₹</option>
+            <option value="USD">USD $</option>
+            <option value="EUR">EUR €</option>
+            <option value="GBP">GBP £</option>
+            <option value="JPY">JPY ¥</option>
+            <option value="AUD">AUD $</option>
+            <option value="CAD">CAD $</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="packing-card">
+        <button class="packing-header" id="packing-toggle" type="button">
+          <span>🎒 Packing checklist</span>
+          <span class="packing-chevron">▾</span>
+        </button>
+        <ul class="packing-list" id="packing-list" hidden></ul>
+      </div>
+
+      <div class="day-tabs" id="day-tabs"></div>
+
+      <div class="day-list" id="day-list"></div>
+
+      <button id="regenerate-btn" class="regenerate-btn">🔁 Draft another itinerary</button>
+    </section>
+  </main>
+
+  <!-- ===== MY TRIPS DRAWER ===== -->
+  <div class="drawer-overlay" id="drawer-overlay" hidden></div>
+  <aside class="my-trips-drawer" id="my-trips-drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <h3>🧳 My trips</h3>
+      <button type="button" id="close-drawer-btn" class="drawer-close">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <p class="drawer-empty" id="drawer-empty">No saved trips yet. Draft an itinerary and hit <strong>Save</strong> to keep it here.</p>
+      <div class="postcard-grid" id="postcard-grid"></div>
+    </div>
+  </aside>
+
+  <footer class="site-footer">
+    <p>Voyage — itineraries generated with AI (Groq/Llama). Weather &amp; forecasts via Open-Meteo, place lookup
+    &amp; maps via OpenStreetMap/Nominatim, currency via Frankfurter (defaults to INR). Verify hours, prices, and
+    bookings before you travel.</p>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
